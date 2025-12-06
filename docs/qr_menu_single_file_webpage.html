@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>QR Menu</title>
+  <meta name="description" content="Lightweight menu opened via QR code" />
+  <style>
+    :root{--bg:#fff;--card:#f8f8f8;--accent:#0f62fe;--muted:#666}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;display:flex;align-items:center;justify-content:center;background:var(--bg);color:#111}
+    .wrap{max-width:520px;width:94%;padding:20px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .logo{width:58px;height:58px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#2dd4bf);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:6px 0 16px;color:var(--muted);font-size:14px}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 1px 0 rgba(0,0,0,0.04)}
+    .item{display:flex;justify-content:space-between;align-items:center}
+    .name{font-weight:600}
+    .price{color:var(--muted)}
+    .desc{color:var(--muted);font-size:13px;margin-top:6px}
+    .actions{display:flex;gap:8px;margin-top:10px}
+    button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;font-weight:600}
+    .small{background:transparent;border:1px solid #ddd;color:#333}
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    /* responsive */
+    @media(min-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <main class="wrap" id="app">
+    <header>
+      <div class="logo" id="logo">KM</div>
+      <div>
+        <h1 id="title">Koraput Menu</h1>
+        <p class="lead" id="subtitle">Scan the QR and explore — tap any item for details or to place an order.</p>
+      </div>
+    </header>
+
+    <div id="menu" class="grid" aria-live="polite"></div>
+
+    <div class="actions" style="justify-content:center">
+      <button id="download-json" class="small">Download JSON</button>
+      <button id="share" class="small">Share Link</button>
+    </div>
+
+    <footer>Open on mobile for best experience • Lightweight single file</footer>
+  </main>
+
+  <script>
+    // --- CONFIG: default menu (you can replace via URL ?menu=... or by embedding JSON) ---
+    const DEFAULT_MENU = [
+      {id:1,name:'Millet Khichdi',price:'₹120',desc:'Nutritious mixed millet khichdi.'},
+      {id:2,name:'Koraput Daliya',price:'₹80',desc:'Roasted millet porridge with jaggery.'},
+      {id:3,name:'Spiced Millet Balls',price:'₹90',desc:'Savory millet balls, house special.'},
+      {id:4,name:'Herbal Tea',price:'₹40',desc:'Locally-sourced herbal infusion.'}
+    ];
+
+    // Utility: read `menu` query param (url-encoded JSON) or return default
+    function loadMenuFromURL(){
+      try{
+        const qp = new URLSearchParams(location.search);
+        if(qp.has('menu')){
+          const raw = decodeURIComponent(qp.get('menu'));
+          return JSON.parse(raw);
+        }
+      }catch(e){console.warn('menu parse failed',e)}
+      return DEFAULT_MENU;
+    }
+
+    // render
+    const menuEl = document.getElementById('menu');
+    const menu = loadMenuFromURL();
+    function render(){
+      menuEl.innerHTML = '';
+      menu.forEach(it=>{
+        const c = document.createElement('div'); c.className='card';
+        c.innerHTML = `<div class="item"><div><div class="name">${escapeHTML(it.name)}</div><div class="price">${it.price||''}</div></div><div><button aria-label="details-${it.id}">Details</button></div></div>${it.desc?'<div class="desc">'+escapeHTML(it.desc)+'</div>':''}`;
+        c.querySelector('button').addEventListener('click',()=>showDetails(it));
+        menuEl.appendChild(c);
+      })
+    }
+
+    function escapeHTML(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]});}
+
+    function showDetails(item){
+      if(confirm(item.name + '\n\n' + (item.desc||'') + '\n\nPrice: ' + (item.price||'N/A') + '\n\nWould you like to copy item name to clipboard?')){
+        navigator.clipboard?.writeText(item.name).then(()=>alert('Copied to clipboard'));
+      }
+    }
+
+    // Download menu JSON
+    document.getElementById('download-json').addEventListener('click',()=>{
+      const blob = new Blob([JSON.stringify(menu, null, 2)],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='menu.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // Share link (uses Web Share API if available)
+    document.getElementById('share').addEventListener('click',async ()=>{
+      const short = location.href;
+      if(navigator.share){
+        try{ await navigator.share({title:document.title,text:'Check our menu',url:short}); }
+        catch(e){console.warn(e)}
+      } else {
+        prompt('Copy this link to share', short);
+      }
+    });
+
+    // init
+    render();
+
+    // tiny performance tip: remove unnecessary fonts & large images. This file has zero external requests.
+  </script>
+</body>
+</html>
